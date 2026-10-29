@@ -1,0 +1,9 @@
+[project]
+name = "gasdash"
+version = "0.1.0"
+description = "European gas storage & clean spark spread analytics dashboard"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

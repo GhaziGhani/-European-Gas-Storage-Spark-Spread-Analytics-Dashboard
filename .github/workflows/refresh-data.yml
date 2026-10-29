@@ -1,0 +1,40 @@
+name: Refresh market data
+
+# Daily after AGSI+ publishes (~18:00 CET) and ENTSO-E day-ahead results are in.
+on:
+  schedule:
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+    inputs:
+      country:
+        description: Market (DE, FR, NL, BE, AT, ES, IT, PL)
+        default: DE
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+      ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run pipeline
+        if: env.GIE_API_KEY != '' && env.ENTSOE_API_KEY != ''
+        run: |
+          ARGS="--country ${{ inputs.country || 'DE' }} --days 365"
+          if [ -f prices/prices.csv ]; then ARGS="$ARGS --prices prices/prices.csv"; fi
+          python -m gasdash.pipeline $ARGS --out data
+      - name: Skip notice
+        if: env.GIE_API_KEY == '' || env.ENTSOE_API_KEY == ''
+        run: echo "::notice::Add GIE_API_KEY and ENTSOE_API_KEY repository secrets to enable the scheduled refresh."
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('data/*.csv') != ''
+        with:
+          name: analytics-${{ github.run_id }}
+          path: data/*.csv
+          retention-days: 30
